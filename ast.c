@@ -3,13 +3,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+void setupLLVM() {
+    LLVMInitializeNativeTarget();
+    LLVMInitializeNativeAsmPrinter();
+    LLVMInitializeNativeAsmParser();
+
+    GlobalContext = LLVMContextCreate();
+    GlobalModule = LLVMModuleCreateWithNameInContext("test_module", GlobalContext);
+    GlobalBuilder = LLVMCreateBuilderInContext(GlobalContext);
+}
 
 // Функция для создания узла целочисленного литерала
 ASTNode* createIntNode(int value) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = AST_INTEGER;
     node->data.intValue = value;
-    printNode(node);
+    node->llvmValue = LLVMConstInt(LLVMInt32TypeInContext(GlobalContext), value, 0);
     return node;
 }
 
@@ -18,7 +27,7 @@ ASTNode* createDoubleNode(double value) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = AST_DOUBLE;
     node->data.doubleValue = value;
-    printNode(node);
+    node->llvmValue = LLVMConstReal(LLVMDoubleTypeInContext(GlobalContext), value);
     return node;
 }
 
@@ -27,7 +36,7 @@ ASTNode* createBoolNode(bool value) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = AST_BOOL;
     node->data.boolValue = value;
-    printNode(node);
+    node->llvmValue = LLVMConstInt(LLVMInt1TypeInContext(GlobalContext), value, 0);
     return node;
 }
 
@@ -36,7 +45,15 @@ ASTNode* createIdentifierNode(char *identifier) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = AST_IDENTIFIER;
     node->data.identifier = strdup(identifier);
-    printNode(node);
+
+    node->llvmValue = LLVMGetNamedGlobal(GlobalModule, identifier);
+
+    if (!node->llvmValue) {
+        LLVMTypeRef varType = LLVMInt32TypeInContext(GlobalContext);
+        node->llvmValue = LLVMAddGlobal(GlobalModule, varType, identifier);
+        LLVMSetInitializer(node->llvmValue, LLVMConstInt(varType, 0, 0));
+    }
+
     return node;
 }
 
@@ -46,7 +63,16 @@ ASTNode* createAssignmentNode(char *identifier, ASTNode *expression) {
     node->type = AST_ASSIGNMENT;
     node->data.assignment.identifier = strdup(identifier);
     node->data.assignment.expression = expression;
-    printNode(node);
+
+    LLVMValueRef var = LLVMGetNamedGlobal(GlobalModule, identifier);
+
+    if (!var) {
+        node->llvmValue = NULL;
+        return node;
+    }
+
+    node->llvmValue = LLVMBuildStore(GlobalBuilder, expression->llvmValue, var);
+
     return node;
 }
 
@@ -57,7 +83,28 @@ ASTNode* createBinaryOpNode(char op, ASTNode *left, ASTNode *right) {
     node->data.binaryOp.op = op;
     node->data.binaryOp.left = left;
     node->data.binaryOp.right = right;
-    printNode(node);
+
+    LLVMValueRef lValue = left->llvmValue;
+    LLVMValueRef rValue = right->llvmValue;
+
+    switch (op) {
+        case '+':
+            node->llvmValue = LLVMBuildAdd(GlobalBuilder, lValue, rValue, "addtmp");
+            break;
+        case '-':
+            node->llvmValue = LLVMBuildSub(GlobalBuilder, lValue, rValue, "subtmp");
+            break;
+        case '*':
+            node->llvmValue = LLVMBuildMul(GlobalBuilder, lValue, rValue, "multmp");
+            break;
+        case '/':
+            node->llvmValue = LLVMBuildSDiv(GlobalBuilder, lValue, rValue, "divtmp");
+            break;
+        default:
+            node->llvmValue = NULL;
+            break;
+    }
+
     return node;
 }
 
@@ -67,7 +114,12 @@ ASTNode* createVariableDeclarationNode(char *type, char *identifier) {
     node->type = AST_VARIABLE_DECLARATION;
     node->data.variableDeclaration.type = strdup(type);
     node->data.variableDeclaration.identifier = strdup(identifier);
-    printNode(node);
+
+    LLVMTypeRef varType = LLVMInt32TypeInContext(GlobalContext);
+    LLVMValueRef var = LLVMAddGlobal(GlobalModule, varType, identifier);
+    LLVMSetInitializer(var, LLVMConstInt(varType, 0, 0)); 
+    node->llvmValue = var;
+
     return node;
 }
 

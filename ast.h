@@ -1,8 +1,16 @@
 #pragma once
 #include <stdbool.h>
-
+#include <llvm-c/Core.h>
+#include <llvm-c/Analysis.h>
+#include <llvm-c/ExecutionEngine.h>
+#include <llvm-c/Target.h>
+#include <llvm-c/TargetMachine.h>
 
 typedef struct ASTNode ASTNode;
+
+extern LLVMContextRef GlobalContext;
+extern LLVMModuleRef GlobalModule;
+extern LLVMBuilderRef GlobalBuilder;
 
 // Определение типов узлов AST
 typedef enum {
@@ -37,6 +45,7 @@ struct VariableDeclarationNode {
 // Структура узла AST
 struct ASTNode {
     NodeType type;        // Тип узла
+    LLVMValueRef llvmValue;
     union {
         int intValue;                            // Для INTEGER
         double doubleValue;                      // Для DOUBLE
@@ -57,3 +66,4 @@ ASTNode* createAssignmentNode(char *identifier, ASTNode *expression);
 ASTNode* createBinaryOpNode(char op, ASTNode *left, ASTNode *right);
 ASTNode* createVariableDeclarationNode(char *type, char *identifier);
 void printNode(ASTNode *node);
+void setupLLVM();
