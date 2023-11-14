@@ -8,10 +8,6 @@
 
 typedef struct ASTNode ASTNode;
 
-extern LLVMContextRef GlobalContext;
-extern LLVMModuleRef GlobalModule;
-extern LLVMBuilderRef GlobalBuilder;
-
 // Определение типов узлов AST
 typedef enum {
     AST_INTEGER,
@@ -42,18 +38,17 @@ struct VariableDeclarationNode {
     char *identifier;     // Идентификатор переменной
 };
 
-// Структура узла AST
 struct ASTNode {
-    NodeType type;        // Тип узла
+    NodeType type;       
     LLVMValueRef llvmValue;
     union {
-        int intValue;                            // Для INTEGER
-        double doubleValue;                      // Для DOUBLE
-        bool boolValue;                          // Для BOOL
-        char *identifier;                        // Для IDENTIFIER
-        struct BinaryOpNode binaryOp;            // Для BINARY_OP
-        struct AssignmentNode assignment;        // Для ASSIGNMENT
-        struct VariableDeclarationNode variableDeclaration; // Для VARIABLE_DECLARATION
+        int intValue;                            
+        double doubleValue;                     
+        bool boolValue;                          
+        char *identifier;                       
+        struct BinaryOpNode binaryOp;            
+        struct AssignmentNode assignment;        
+        struct VariableDeclarationNode variableDeclaration; 
     } data;
 };
 
@@ -67,3 +62,4 @@ ASTNode* createBinaryOpNode(char op, ASTNode *left, ASTNode *right);
 ASTNode* createVariableDeclarationNode(char *type, char *identifier);
 void printNode(ASTNode *node);
 void setupLLVM();
+void saveIRToFile(const char* filename);
